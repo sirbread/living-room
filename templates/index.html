@@ -18,6 +18,7 @@
       align-items: center;
       justify-content: center;
       position: relative;
+      flex-direction: column;
     }
 
     #player {
@@ -37,11 +38,25 @@
       pointer-events: all;
     }
 
+    #static {
+      position: absolute;
+      width: 100%;
+      max-width: 960px;
+      aspect-ratio: 16 / 9;
+      background: url('/static/static.gif') center center / cover no-repeat; /*fitting*/
+      z-index: 998;
+      pointer-events: none;
+    }
+
+    #static.hidden {
+      display: none;
+    }
+
     #overlay {
       position: fixed;
       inset: 0;
       backdrop-filter: blur(30px);
-      background: rgba(0, 0, 0, 0.3);
+      background: rgba(148, 110, 52, 0.3);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -61,25 +76,41 @@
       opacity: 0;
       pointer-events: none;
     }
+
+    #change-channel {
+      position: absolute;
+      bottom: 30px;
+      z-index: 10;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 10px;
+      backdrop-filter: blur(5px);
+    }
   </style>
 </head>
 <body>
   <div id="overlay">
-    <div id="overlay-text">click to enter the </div>
+    <div id="overlay-text">click to enter the living room</div>
   </div>
 
   <div id="main-content">
     <div id="player"></div>
     <div id="blocker"></div>
+    <div id="static" class="hidden"></div>
+    <button id="change-channel">change channel</button>
   </div>
 
   <script>
-    let player;
-    let loadStartTime = null;
-    let ready = false;
+    let player
+    let loadStartTime = null
+    let ready = false
 
     function onYouTubeIframeAPIReady() {
-      loadStartTime = Date.now();
+      loadStartTime = Date.now()
       player = new YT.Player('player', {
         videoId: "{{ video_id }}",
         playerVars: {
@@ -94,38 +125,55 @@
         },
         events: {
           onReady: () => {
-            player.playVideo();
-            ready = true;
+            player.playVideo()
+            ready = true
           },
           onStateChange: (event) => {
             if (event.data === YT.PlayerState.PAUSED) {
-              player.playVideo();
+              player.playVideo()
             }
           }
         }
-      });
+      })
     }
 
     document.getElementById('overlay').addEventListener('click', () => {
-      if (!ready) return;
+      if (!ready) return
 
-      const overlay = document.getElementById('overlay');
-      const text = document.getElementById('overlay-text');
-      const timeElapsed = Date.now() - loadStartTime;
-      const delay = Math.max(0, 4300 - timeElapsed);
+      const overlay = document.getElementById('overlay')
+      const text = document.getElementById('overlay-text')
+      const timeElapsed = Date.now() - loadStartTime
+      const delay = Math.max(0, 4000 - timeElapsed)
 
-      overlay.classList.add('loading');
-      text.textContent = 'loading in...';
+      overlay.classList.add('loading')
+      text.textContent = 'loading in...'
 
       setTimeout(() => {
-        player.unMute();
-        overlay.classList.add('hidden');
-      }, delay);
-    });
+        player.unMute()
+        overlay.classList.add('hidden')
+      }, delay)
+    })
 
-    const tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.body.appendChild(tag);
+    document.getElementById('change-channel').addEventListener('click', async () => {
+      const response = await fetch('/random')
+      const data = await response.json()
+      if (!data.video_id) return
+
+      const staticOverlay = document.getElementById('static')
+      staticOverlay.classList.remove('hidden')
+
+      player.mute()
+      player.loadVideoById(data.video_id)
+
+      setTimeout(() => {
+        staticOverlay.classList.add('hidden')
+        player.unMute()
+      }, 3500)
+    })
+
+    const tag = document.createElement('script')
+    tag.src = "https://www.youtube.com/iframe_api"
+    document.body.appendChild(tag)
   </script>
 </body>
 </html>
