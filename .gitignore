@@ -1,0 +1,4 @@
+.env
+__pycache__/
+streams.db
+last_run.txt

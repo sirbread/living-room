@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>living room</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: black;
+      font-family: georgia;
+      overflow: hidden;
+    }
+
+    #main-content {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    #player {
+      width: 100%;
+      max-width: 960px;
+      aspect-ratio: 16 / 9;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    #blocker {
+      position: absolute;
+      width: 100%;
+      max-width: 960px;
+      aspect-ratio: 16 / 9;
+      z-index: 2;
+      pointer-events: all;
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      backdrop-filter: blur(30px);
+      background: rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: white;
+      font-size: 2rem;
+      z-index: 999;
+      cursor: pointer;
+      transition: opacity 0.3s ease;
+    }
+
+    #overlay.loading {
+      cursor: default;
+    }
+
+    #overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <div id="overlay-text">click to enter the </div>
+  </div>
+
+  <div id="main-content">
+    <div id="player"></div>
+    <div id="blocker"></div>
+  </div>
+
+  <script>
+    let player;
+    let loadStartTime = null;
+    let ready = false;
+
+    function onYouTubeIframeAPIReady() {
+      loadStartTime = Date.now();
+      player = new YT.Player('player', {
+        videoId: "{{ video_id }}",
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          fs: 0,
+          iv_load_policy: 3,
+          playsinline: 1
+        },
+        events: {
+          onReady: () => {
+            player.playVideo();
+            ready = true;
+          },
+          onStateChange: (event) => {
+            if (event.data === YT.PlayerState.PAUSED) {
+              player.playVideo();
+            }
+          }
+        }
+      });
+    }
+
+    document.getElementById('overlay').addEventListener('click', () => {
+      if (!ready) return;
+
+      const overlay = document.getElementById('overlay');
+      const text = document.getElementById('overlay-text');
+      const timeElapsed = Date.now() - loadStartTime;
+      const delay = Math.max(0, 4300 - timeElapsed);
+
+      overlay.classList.add('loading');
+      text.textContent = 'loading in...';
+
+      setTimeout(() => {
+        player.unMute();
+        overlay.classList.add('hidden');
+      }, delay);
+    });
+
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.body.appendChild(tag);
+  </script>
+</body>
+</html>
+
