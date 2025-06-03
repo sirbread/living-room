@@ -11,7 +11,6 @@
       font-family: georgia;
       overflow: hidden;
     }
-
     #main-content {
       height: 100%;
       display: flex;
@@ -19,68 +18,44 @@
       justify-content: center;
       position: relative;
       flex-direction: column;
+      filter: blur(30px);
+      transition: filter 0.7s cubic-bezier(.4,0,.2,1);
     }
-
-    #player {
+    #main-content.ready {
+      filter: none;
+    }
+    .video-wrapper {
+      position: relative;
       width: 100%;
       max-width: 960px;
       aspect-ratio: 16 / 9;
-      z-index: 1;
-      pointer-events: none;
+      box-shadow: 0 0 64px 0 rgba(0,0,0,0.5);
+      background: #000;
     }
-
-    #blocker {
+    #twitch-embed iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+    #static-overlay {
       position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
-      max-width: 960px;
-      aspect-ratio: 16 / 9;
-      z-index: 2;
-      pointer-events: all;
-    }
-
-    #static {
-      position: absolute;
-      width: 100%;
-      max-width: 960px;
-      aspect-ratio: 16 / 9;
-      background: url('/static/static.gif') center center / cover no-repeat; /*fitting*/
-      z-index: 998;
-      pointer-events: none;
-    }
-
-    #static.hidden {
+      height: 100%;
+      z-index: 10;
       display: none;
     }
-
-    #overlay {
-      position: fixed;
-      inset: 0;
-      backdrop-filter: blur(30px);
-      background: rgba(148, 110, 52, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      color: white;
-      font-size: 2rem;
-      z-index: 999;
-      cursor: pointer;
-      transition: opacity 0.3s ease;
+    #static-overlay img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
-
-    #overlay.loading {
-      cursor: default;
-    }
-
-    #overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
     #change-channel {
       position: absolute;
       bottom: 30px;
-      z-index: 10;
+      z-index: 5;
       background: rgba(255,255,255,0.1);
       color: white;
       padding: 10px 20px;
@@ -89,6 +64,44 @@
       cursor: pointer;
       border-radius: 10px;
       backdrop-filter: blur(5px);
+      transition: background 0.3s;
+    }
+    #change-channel:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    #overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: white;
+      font-size: 2.2rem;
+      z-index: 9999;
+      cursor: pointer;
+      backdrop-filter: blur(30px);
+      background: rgba(148, 110, 52, 0.3);
+      opacity: 1;
+      pointer-events: all;
+      transition: opacity 0.7s cubic-bezier(.4,0,.2,1);
+    }
+    #overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #overlay-text {
+      text-shadow: 0 2px 16px #000, 0 0px 2px #000;
+      padding: 32px 48px;
+      border-radius: 24px;
+      background: rgba(0,0,0,0.18);
+      font-size: 2.3rem;
+      user-select: none;
+      pointer-events: none;
+    }
+    #twitch-embed {
+      width: 100%;
+      height: 100%;
     }
   </style>
 </head>
@@ -98,83 +111,60 @@
   </div>
 
   <div id="main-content">
-    <div id="player"></div>
-    <div id="blocker"></div>
-    <div id="static" class="hidden"></div>
+    <div class="video-wrapper">
+      <div id="static-overlay">
+        <img src="/static/static.gif" alt="static">
+      </div>
+      <div id="twitch-embed"></div>
+    </div>
     <button id="change-channel">change channel</button>
   </div>
 
+  <script src="https://player.twitch.tv/js/embed/v1.js"></script>
   <script>
-    let player
-    let loadStartTime = null
-    let ready = false
+    const overlay = document.getElementById('overlay');
+    const overlayText = document.getElementById('overlay-text');
+    const mainContent = document.getElementById('main-content');
+    const twitchEmbed = document.getElementById('twitch-embed');
+    const staticOverlay = document.getElementById('static-overlay');
 
-    function onYouTubeIframeAPIReady() {
-      loadStartTime = Date.now()
-      player = new YT.Player('player', {
-        videoId: "{{ video_id }}",
-        playerVars: {
-          autoplay: 1,
-          mute: 1,
-          controls: 0,
-          modestbranding: 1,
-          rel: 0,
-          fs: 0,
-          iv_load_policy: 3,
-          playsinline: 1
-        },
-        events: {
-          onReady: () => {
-            player.playVideo()
-            ready = true
-          },
-          onStateChange: (event) => {
-            if (event.data === YT.PlayerState.PAUSED) {
-              player.playVideo()
-            }
-          }
-        }
-      })
+    let currentChannel = "{{ channel_name }}";
+
+    function showStatic(duration) {
+      staticOverlay.style.display = 'block';
+      setTimeout(() => {
+        staticOverlay.style.display = 'none';
+      }, duration);
     }
 
-    document.getElementById('overlay').addEventListener('click', () => {
-      if (!ready) return
+    function loadTwitch(channel) {
+      twitchEmbed.innerHTML = '';
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://player.twitch.tv/?channel=${channel}&parent=localhost&parent=127.0.0.1&muted=false&autoplay=true`;
+      iframe.allowFullscreen = true;
+      iframe.allow = 'autoplay';
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = 'none';
+      twitchEmbed.appendChild(iframe);
+    }
 
-      const overlay = document.getElementById('overlay')
-      const text = document.getElementById('overlay-text')
-      const timeElapsed = Date.now() - loadStartTime
-      const delay = Math.max(0, 4000 - timeElapsed)
-
-      overlay.classList.add('loading')
-      text.textContent = 'loading in...'
-
-      setTimeout(() => {
-        player.unMute()
-        overlay.classList.add('hidden')
-      }, delay)
-    })
+    overlay.addEventListener('click', () => {
+      overlay.classList.add('hidden');
+      mainContent.classList.add('ready');
+      showStatic(1000);
+      loadTwitch(currentChannel);
+    });
 
     document.getElementById('change-channel').addEventListener('click', async () => {
-      const response = await fetch('/random')
-      const data = await response.json()
-      if (!data.video_id) return
+      const response = await fetch('/random');
+      const data = await response.json();
+      if (!data.channel_name) return;
 
-      const staticOverlay = document.getElementById('static')
-      staticOverlay.classList.remove('hidden')
-
-      player.mute()
-      player.loadVideoById(data.video_id)
-
-      setTimeout(() => {
-        staticOverlay.classList.add('hidden')
-        player.unMute()
-      }, 3500)
-    })
-
-    const tag = document.createElement('script')
-    tag.src = "https://www.youtube.com/iframe_api"
-    document.body.appendChild(tag)
+      currentChannel = data.channel_name;
+      showStatic(1500);
+      loadTwitch(currentChannel);
+    });
   </script>
 </body>
 </html>
-
