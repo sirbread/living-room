@@ -1,6 +1,7 @@
 import os
 import random
 import time
+import threading
 import requests
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -18,6 +19,9 @@ templates = Jinja2Templates(directory="templates")
 
 oauth_token = None
 token_expiry = 0
+cached_channels = []
+last_update = 0
+session = requests.Session()
 
 def get_twitch_oauth_token():
     global oauth_token, token_expiry
@@ -29,28 +33,56 @@ def get_twitch_oauth_token():
         "client_secret": TWITCH_CLIENT_SECRET,
         "grant_type": "client_credentials",
     }
-    resp = requests.post(url, params=params)
+    resp = session.post(url, params=params)
     resp.raise_for_status()
     data = resp.json()
     oauth_token = data["access_token"]
     token_expiry = time.time() + data["expires_in"]
     return oauth_token
 
+def refresh_channels():
+    global cached_channels, last_update
+    try:
+        token = get_twitch_oauth_token()
+        url = "https://api.twitch.tv/helix/streams"
+        headers = {
+            "Client-ID": TWITCH_CLIENT_ID,
+            "Authorization": f"Bearer {token}",
+        }
+
+        channels = []
+        cursor = None
+        for _ in range(10):  #a thousand streams, in case this thing does go viral (smh)
+            params = {"first": 100}
+            if cursor:
+                params["after"] = cursor
+            resp = session.get(url, headers=headers, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            channels += data.get("data", [])
+            cursor = data.get("pagination", {}).get("cursor")
+            if not cursor:
+                break
+
+        cached_channels = [c["user_login"] for c in channels if "user_login" in c]
+        last_update = time.time()
+        print(f"Refreshed {len(cached_channels)} channels")
+    except Exception as e:
+        print("Failed to refresh channels:", e)
+
+def periodic_refresh():
+    while True:
+        if time.time() - last_update > 300: 
+            refresh_channels()
+        time.sleep(60)
+
+threading.Thread(target=periodic_refresh, daemon=True).start()
+
 def get_random_live_channel():
-    token = get_twitch_oauth_token()
-    url = "https://api.twitch.tv/helix/streams"
-    headers = {
-        "Client-ID": TWITCH_CLIENT_ID,
-        "Authorization": f"Bearer {token}",
-    }
-    params = {"first": 100}
-    resp = requests.get(url, headers=headers, params=params)
-    resp.raise_for_status()
-    data = resp.json().get("data", [])
-    if not data:
+    if cached_channels:
+        return random.choice(cached_channels)
+    else:
         return None
-    channel = random.choice(data)
-    return channel["user_login"]
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):

@@ -32,12 +32,6 @@
       box-shadow: 0 0 64px 0 rgba(0,0,0,0.5);
       background: #000;
     }
-    #twitch-embed iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-    }
     #static-overlay {
       position: absolute;
       top: 0;
@@ -51,6 +45,17 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+    }
+    #blocker {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
+      background: transparent;
+      cursor: default;
+      pointer-events: auto;
     }
     #change-channel {
       position: absolute;
@@ -116,6 +121,7 @@
         <img src="/static/static.gif" alt="static">
       </div>
       <div id="twitch-embed"></div>
+      <div id="blocker"></div>
     </div>
     <button id="change-channel">change channel</button>
   </div>
@@ -123,48 +129,71 @@
   <script src="https://player.twitch.tv/js/embed/v1.js"></script>
   <script>
     const overlay = document.getElementById('overlay');
-    const overlayText = document.getElementById('overlay-text');
     const mainContent = document.getElementById('main-content');
     const twitchEmbed = document.getElementById('twitch-embed');
     const staticOverlay = document.getElementById('static-overlay');
+    const blocker = document.getElementById('blocker');
+    const changeBtn = document.getElementById('change-channel');
 
     let currentChannel = "{{ channel_name }}";
+    let player = null;
 
     function showStatic(duration) {
       staticOverlay.style.display = 'block';
       setTimeout(() => {
         staticOverlay.style.display = 'none';
+        if (player) player.setMuted(false);
       }, duration);
     }
+    function createPlayer(channel) {
+      if (player) {
+        player.removeEventListener(Twitch.Player.READY, onPlayerReady);
+        player.removeEventListener(Twitch.Player.PLAY, onPlayerPlay);
+        player.destroy();
+        player = null;
+      }
 
-    function loadTwitch(channel) {
-      twitchEmbed.innerHTML = '';
-      const iframe = document.createElement('iframe');
-      iframe.src = `https://player.twitch.tv/?channel=${channel}&parent=localhost&parent=127.0.0.1&muted=false&autoplay=true`;
-      iframe.allowFullscreen = true;
-      iframe.allow = 'autoplay';
-      iframe.style.width = '100%';
-      iframe.style.height = '100%';
-      iframe.style.border = 'none';
-      twitchEmbed.appendChild(iframe);
+      player = new Twitch.Player("twitch-embed", {
+        channel: channel,
+        width: "100%",
+        height: "100%",
+        muted: true,
+        autoplay: true,
+        controls: false,
+      });
+
+      player.addEventListener(Twitch.Player.READY, onPlayerReady);
+      player.addEventListener(Twitch.Player.PLAY, onPlayerPlay);
+    }
+
+    function onPlayerReady() {
+      showStatic(1000);
+    }
+
+    function onPlayerPlay() {
+      staticOverlay.style.display = 'none';
+      mainContent.classList.add('ready');
+      player.setMuted(false);
+      blocker.style.pointerEvents = 'auto';
     }
 
     overlay.addEventListener('click', () => {
       overlay.classList.add('hidden');
       mainContent.classList.add('ready');
-      showStatic(1000);
-      loadTwitch(currentChannel);
+      createPlayer(currentChannel);
     });
 
-    document.getElementById('change-channel').addEventListener('click', async () => {
+    changeBtn.addEventListener('click', async () => {
       const response = await fetch('/random');
       const data = await response.json();
       if (!data.channel_name) return;
 
       currentChannel = data.channel_name;
       showStatic(1500);
-      loadTwitch(currentChannel);
+      createPlayer(currentChannel);
     });
+    blocker.style.pointerEvents = 'none';
+
   </script>
 </body>
 </html>
