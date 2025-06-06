@@ -5,3 +5,4 @@ todo:
 - overlay lines over video
 - overlay crt over video
 - ~~mute until static dissapears~~
+- actually make it sync up with all other running instances

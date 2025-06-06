@@ -71,7 +71,13 @@
       backdrop-filter: blur(5px);
       transition: background 0.3s;
     }
-    #change-channel:hover {
+    #change-channel:disabled {
+      background: rgba(255,255,255,0.05);
+      color: #aaa;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    #change-channel:hover:not(:disabled) {
       background: rgba(255,255,255,0.2);
     }
     #overlay {
@@ -107,6 +113,39 @@
     #twitch-embed {
       width: 100%;
       height: 100%;
+    }
+    #status-message {
+      position: fixed;
+      top: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(40, 40, 40, 0.97);
+      color: #fff2d4;
+      padding: 13px 34px;
+      border-radius: 14px;
+      font: georgia;
+      font-size: 1.09rem;
+      z-index: 11000;
+      box-shadow: 0 2px 18px 0 rgba(0,0,0,0.16);
+      display: none;
+      white-space: pre-line;
+      pointer-events: none;
+      letter-spacing: 0.01em;
+      transition: opacity 0.45s cubic-bezier(.4,0,.2,1);
+      opacity: 1;
+      text-align: center;
+    }
+    #status-message.error {
+      background: rgba(220,30,30,0.92);
+      color: #fff0f0;
+    }
+    #status-message.success {
+      background: rgba(58,170,87,0.92);
+      color: #eaffea;
+    }
+    #status-message.notice {
+      background: rgba(128,128,32,0.90);
+      color: #fffbe9;
     }
   @keyframes flicker {
     0%, 100% { opacity: 0.15; }
@@ -167,7 +206,7 @@
     </div>
     <button id="change-channel">change channel</button>
   </div>
-
+  <div id="status-message"></div>
   <script src="https://player.twitch.tv/js/embed/v1.js"></script>
   <script>
     const overlay = document.getElementById('overlay');
@@ -177,9 +216,14 @@
     const staticVideo = staticOverlay.querySelector('video');
     const blocker = document.getElementById('blocker');
     const changeBtn = document.getElementById('change-channel');
+    const statusMessage = document.getElementById('status-message');
 
     let currentChannel = "{{ channel_name }}";
     let player = null;
+    let ws = null;
+    let reconnectAttempts = 0;
+    let changeCooldown = 3000;
+    let cooldownTimer = null;
 
     function showStatic(duration) {
       staticOverlay.style.display = 'block';
@@ -230,22 +274,85 @@
       blocker.style.pointerEvents = 'auto';
     }
 
+    function showStatusMessage(msg, type = "notice", duration = 3500) {
+      statusMessage.textContent = msg;
+      statusMessage.className = '';
+      statusMessage.classList.add(type);
+      statusMessage.style.opacity = '1';
+      statusMessage.style.display = 'block';
+      if (duration) {
+        setTimeout(() => {
+          statusMessage.style.opacity = '0';
+          setTimeout(() => { statusMessage.style.display = 'none'; }, 450);
+        }, duration);
+      }
+    }
+
     overlay.addEventListener('click', () => {
       overlay.classList.add('hidden');
       mainContent.classList.add('ready');
       createPlayer(currentChannel);
+      connectWS();
     });
 
-    changeBtn.addEventListener('click', async () => {
-      const response = await fetch('/random');
-      const data = await response.json();
-      if (!data.channel_name) return;
-
-      currentChannel = data.channel_name;
-      showStatic(1500);
-      createPlayer(currentChannel);
+    changeBtn.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN && !changeBtn.disabled) {
+        ws.send(JSON.stringify({type: "change_channel"}));
+        changeBtn.disabled = true;
+        changeBtn.textContent = "hold up...";
+        cooldownTimer = setTimeout(() => {
+          changeBtn.disabled = false;
+          changeBtn.textContent = "change channel";
+        }, changeCooldown);
+      }
     });
     blocker.style.pointerEvents = 'none';
+
+    function connectWS() {
+      try {
+        ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws');
+        ws.onopen = () => {
+          reconnectAttempts = 0;
+          showStatusMessage('connected to living room!', 'success', 1400);
+          changeBtn.disabled = false;
+          changeBtn.textContent = "change channel";
+        };
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "sync" && msg.channel && msg.channel !== currentChannel) {
+            currentChannel = msg.channel;
+            showStatic(1500);
+            createPlayer(currentChannel);
+          } else if (msg.type === "error" && msg.message) {
+            showStatusMessage(msg.message, 'error', 3100);
+            if (msg.message.toLowerCase().includes("too fast")) {
+              if (cooldownTimer) clearTimeout(cooldownTimer);
+              changeBtn.disabled = true;
+              changeBtn.textContent = "hold up...";
+              cooldownTimer = setTimeout(() => {
+                changeBtn.disabled = false;
+                changeBtn.textContent = "change channel";
+              }, changeCooldown);
+            }
+          }
+        };
+        ws.onerror = (e) => {
+          showStatusMessage('connection error. trying to reconnect...', 'error', 2800);
+          console.error("WebSocket error:", e);
+        };
+        ws.onclose = () => {
+          showStatusMessage('disconnected. attempting to reconnect...', 'error', 3200);
+          changeBtn.disabled = true;
+          changeBtn.textContent = "reconnecting...";
+          reconnectAttempts++;
+          const retryDelay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+          setTimeout(connectWS, retryDelay);
+        };
+      } catch (e) {
+        showStatusMessage('fatal error: unable to connect.', 'error', 7000);
+        console.error("ws fatal error:", e);
+      }
+    }
 
   </script>
 </body>
