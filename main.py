@@ -114,11 +114,15 @@ class ConnectionManager:
         logging.info(f"WebSocket client disconnected. Total: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
+        to_remove = []
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
             except Exception as e:
-                logging.warning(f"Broadcast failed: {e}")
+                logging.warning(f"broadcast failed (removing client): {e}")
+                to_remove.append(connection)
+        for conn in to_remove:
+            self.disconnect(conn)
 
     def can_change(self, websocket, cooldown=3):
         now = time.time()
@@ -138,43 +142,39 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             try:
                 data = await websocket.receive_json()
-                if data.get("type") == "change_channel":
-                    now = time.time()
-                    #fist do a global cooldown check
-                    if now - last_global_change < GLOBAL_COOLDOWN:
-                        continue
-                    #then do a user cooldown check
-                    if not manager.can_change(websocket):
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": "slow down! you're changing channels too fast."
-                        })
-                        continue
-
-                    channel = get_random_live_channel()
-                    if channel:
-                        shared_channel["channel"] = channel
-                        shared_channel["updated_at"] = now
-                        last_global_change = now
-                        await manager.broadcast({"type": "sync", "channel": channel})
-                        await manager.broadcast({"type": "global_cooldown"})
-                        logging.info(f"Channel changed to {channel}")
-                    else:
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": "No streams available."
-                        })
             except Exception as e:
-                #logging.error(f"Error during message handling: {e}")
-                try:
-                    await websocket.send_json({"type": "error", "message": "An error occurred. Please refresh the page."})
-                except:
-                    pass
+                break
+            if data.get("type") == "change_channel":
+                now = time.time()
+                #fist do a global cooldown check
+                if now - last_global_change < GLOBAL_COOLDOWN:
+                    continue
+                #then do a user cooldown check
+                if not manager.can_change(websocket):
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "slow down! you're changing channels too fast."
+                    })
+                    continue
+
+                channel = get_random_live_channel()
+                if channel:
+                    shared_channel["channel"] = channel
+                    shared_channel["updated_at"] = now
+                    last_global_change = now
+                    await manager.broadcast({"type": "sync", "channel": channel})
+                    await manager.broadcast({"type": "global_cooldown"})
+                    logging.info(f"Channel changed to {channel}")
+                else:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "No streams available."
+                    })
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
-        #logging.info("WebSocket disconnected")
+        pass
     except Exception as e:
         logging.error(f"WebSocket error: {e}")
+    finally:
         manager.disconnect(websocket)
 
 @app.get("/", response_class=HTMLResponse)
