@@ -32,7 +32,7 @@ shared_channel = {"channel": None, "updated_at": time.time()}
 session = requests.Session()
 
 last_global_change = 0
-GLOBAL_COOLDOWN = 1  #second
+GLOBAL_COOLDOWN = 2  #seconds
 
 def get_twitch_oauth_token():
     global oauth_token, token_expiry
@@ -142,16 +142,12 @@ async def websocket_endpoint(websocket: WebSocket):
                     now = time.time()
                     #fist do a global cooldown check
                     if now - last_global_change < GLOBAL_COOLDOWN:
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": ""
-                        })
                         continue
                     #then do a user cooldown check
                     if not manager.can_change(websocket):
                         await websocket.send_json({
                             "type": "error",
-                            "message": "slow down! you're changing channels to fast."
+                            "message": "slow down! you're changing channels too fast."
                         })
                         continue
 
@@ -161,6 +157,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         shared_channel["updated_at"] = now
                         last_global_change = now
                         await manager.broadcast({"type": "sync", "channel": channel})
+                        await manager.broadcast({"type": "global_cooldown"})
                         logging.info(f"Channel changed to {channel}")
                     else:
                         await websocket.send_json({
@@ -168,14 +165,14 @@ async def websocket_endpoint(websocket: WebSocket):
                             "message": "No streams available."
                         })
             except Exception as e:
-                logging.error(f"Error during message handling: {e}")
+                #logging.error(f"Error during message handling: {e}")
                 try:
                     await websocket.send_json({"type": "error", "message": "An error occurred. Please refresh the page."})
                 except:
                     pass
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        logging.info("WebSocket disconnected")
+        #logging.info("WebSocket disconnected")
     except Exception as e:
         logging.error(f"WebSocket error: {e}")
         manager.disconnect(websocket)
@@ -197,4 +194,3 @@ async def stats():
         "last_channel": shared_channel["channel"],
         "last_update": shared_channel["updated_at"]
     }
-[]

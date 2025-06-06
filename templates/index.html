@@ -222,8 +222,43 @@
     let player = null;
     let ws = null;
     let reconnectAttempts = 0;
-    let changeCooldown = 3000;
+    let changeCooldown = 3000;  
+    let globalCooldown = 2000;
     let cooldownTimer = null;
+
+    let userCooldownUntil = 0;
+    let globalCooldownUntil = 0;
+
+    function setButtonCooldown(type, ms) {
+      const now = Date.now();
+      if (type === "user") {
+        userCooldownUntil = now + ms;
+      } else if (type === "global") {
+        globalCooldownUntil = now + ms;
+      }
+      updateCooldownState();
+    }
+
+    function updateCooldownState() {
+      const now = Date.now();
+      const userActive = userCooldownUntil > now;
+      const globalActive = globalCooldownUntil > now;
+      if (userActive || globalActive) {
+        changeBtn.disabled = true;
+        changeBtn.textContent = "hold up...";
+      } else {
+        changeBtn.disabled = false;
+        changeBtn.textContent = "change channel";
+      }
+      if (userActive || globalActive) {
+        if (cooldownTimer) clearTimeout(cooldownTimer);
+        const next = Math.min(
+          userActive ? userCooldownUntil - now : Infinity,
+          globalActive ? globalCooldownUntil - now : Infinity
+        );
+        cooldownTimer = setTimeout(updateCooldownState, next + 5);
+      }
+    }
 
     function showStatic(duration) {
       staticOverlay.style.display = 'block';
@@ -298,12 +333,7 @@
     changeBtn.addEventListener('click', () => {
       if (ws && ws.readyState === WebSocket.OPEN && !changeBtn.disabled) {
         ws.send(JSON.stringify({type: "change_channel"}));
-        changeBtn.disabled = true;
-        changeBtn.textContent = "hold up...";
-        cooldownTimer = setTimeout(() => {
-          changeBtn.disabled = false;
-          changeBtn.textContent = "change channel";
-        }, changeCooldown);
+        setButtonCooldown("user", changeCooldown);
       }
     });
     blocker.style.pointerEvents = 'none';
@@ -314,8 +344,9 @@
         ws.onopen = () => {
           reconnectAttempts = 0;
           showStatusMessage('connected to living room!', 'success', 1400);
-          changeBtn.disabled = false;
-          changeBtn.textContent = "change channel";
+          userCooldownUntil = 0;
+          globalCooldownUntil = 0;
+          updateCooldownState();
         };
         ws.onmessage = (event) => {
           const msg = JSON.parse(event.data);
@@ -323,17 +354,17 @@
             currentChannel = msg.channel;
             showStatic(1500);
             createPlayer(currentChannel);
-          } else if (msg.type === "error" && msg.message) {
-            showStatusMessage(msg.message, 'error', 3100);
-            if (msg.message.toLowerCase().includes("too fast")) {
-              if (cooldownTimer) clearTimeout(cooldownTimer);
-              changeBtn.disabled = true;
-              changeBtn.textContent = "hold up...";
-              cooldownTimer = setTimeout(() => {
-                changeBtn.disabled = false;
-                changeBtn.textContent = "change channel";
-              }, changeCooldown);
+          } else if (msg.type === "global_cooldown") {
+            const now = Date.now();
+            if (userCooldownUntil <= now) {
+              setButtonCooldown("global", globalCooldown);
             }
+          } else if (msg.type === "error" && msg.message) {
+            if (msg.message.toLowerCase().includes("too fast")) {
+              setButtonCooldown("user", changeCooldown);
+              return;
+            }
+            showStatusMessage(msg.message, 'error', 3100);
           }
         };
         ws.onerror = (e) => {
