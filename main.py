@@ -104,14 +104,14 @@ class ConnectionManager:
         await websocket.accept()
         self.active_connections.append(websocket)
         self.last_change[websocket] = 0
-        logging.info(f"WebSocket client connected. Total: {len(self.active_connections)}")
+        logging.info(f"ws client connected. total: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
         if websocket in self.last_change:
             del self.last_change[websocket]
-        logging.info(f"WebSocket client disconnected. Total: {len(self.active_connections)}")
+        logging.info(f"ws client disconnected. total: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
         to_remove = []
@@ -164,16 +164,16 @@ async def websocket_endpoint(websocket: WebSocket):
                     last_global_change = now
                     await manager.broadcast({"type": "sync", "channel": channel})
                     await manager.broadcast({"type": "global_cooldown"})
-                    logging.info(f"Channel changed to {channel}")
+                    logging.info(f"channel changed to {channel}")
                 else:
                     await websocket.send_json({
                         "type": "error",
-                        "message": "No streams available."
+                        "message": "no streams available."
                     })
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        logging.error(f"WebSocket error: {e}")
+        logging.error(f"ws error: {e}")
     finally:
         manager.disconnect(websocket)
 

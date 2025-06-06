@@ -343,7 +343,7 @@
         ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws');
         ws.onopen = () => {
           reconnectAttempts = 0;
-          showStatusMessage('connected to living room!', 'success', 1400);
+          showStatusMessage('connected', 'success', 1400);
           userCooldownUntil = 0;
           globalCooldownUntil = 0;
           updateCooldownState();
@@ -369,7 +369,7 @@
         };
         ws.onerror = (e) => {
           showStatusMessage('connection error. trying to reconnect...', 'error', 2800);
-          console.error("WebSocket error:", e);
+          console.error("websocket error:", e);
         };
         ws.onclose = () => {
           if (isUnloading) return;
