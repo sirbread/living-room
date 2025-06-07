@@ -38,7 +38,7 @@
       align-items: center;
       justify-content: center;
     }
-/*fts \/\/\/ */
+    /*fts \/\/\/ */
     .crt-image {
       position: absolute;
       left: 0; top: 0;
@@ -46,7 +46,7 @@
       height: 100vh;
       object-fit: cover;
       object-position: center;
-      z-index: 2;
+      z-index: 5;
       pointer-events: none;
       user-select: none;
       display: block;
@@ -74,6 +74,52 @@
       height: 100%;
       object-fit: cover;
     }
+
+    .crt-vscanlines {
+      pointer-events: none;
+      position: absolute;
+      left: 22.2vw;
+      top: 22.6vh;
+      width: 56vw;
+      height: 44.5vh;
+      z-index: 3;
+
+      background: repeating-linear-gradient(
+        to right,
+        rgba(255,255,255, 0.06) 0px,
+        rgba(255,255,255, 0.06) 2px,
+        transparent 3px,
+        transparent 5px 
+      );
+      mix-blend-mode: lighten;
+      border-radius: 2.5%/3.0%;
+      overflow: hidden;
+    }
+
+    .crt-flicker {
+      pointer-events: none;
+      position: absolute;
+      left: 22.2vw;
+      top: 22.6vh;
+      width: 56vw;
+      height: 44.5vh;
+      z-index: 4;
+
+      background: rgba(255,255,255,0.06); 
+      opacity: 0.6;
+      animation: crtFlicker 0.07s infinite steps(2); 
+      mix-blend-mode: lighten;
+      border-radius: 2.5%/3.0%;
+      overflow: hidden;
+    }
+
+    @keyframes crtFlicker {
+      0%, 100% { opacity: 0.5; }
+      20% { opacity: 1; }
+      50% { opacity: 0.3; }
+      80% { opacity: 0.9; }
+    }
+
     #blocker {
       position: absolute;
       left: 0; top: 0;
@@ -189,11 +235,13 @@
 
   <div id="main-content">
     <div class="crt-container">
-      <img src="/static/crt.png" alt="crt tv" class="crt-image" />
       <div id="twitch-embed"></div>
       <div id="static-overlay">
         <video src="/static/static.mp4" autoplay muted playsinline></video>
       </div>
+      <div class="crt-vscanlines"></div>
+      <div class="crt-flicker"></div>
+      <img src="/static/crt.png" alt="crt tv" class="crt-image" />
       <div id="blocker"></div>
     </div>
     <button id="change-channel">change channel</button>
