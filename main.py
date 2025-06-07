@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 import logging
+import asyncio
 
 load_dotenv()
 TWITCH_CLIENT_ID = os.environ.get("TWITCH_CLIENT_ID")
@@ -32,7 +33,7 @@ shared_channel = {"channel": None, "updated_at": time.time()}
 session = requests.Session()
 
 last_global_change = 0
-GLOBAL_COOLDOWN = 2  #seconds
+GLOBAL_COOLDOWN = 3  #seconds
 
 def get_twitch_oauth_token():
     global oauth_token, token_expiry
@@ -105,6 +106,7 @@ class ConnectionManager:
         self.active_connections.append(websocket)
         self.last_change[websocket] = 0
         logging.info(f"ws client connected. total: {len(self.active_connections)}")
+        await self.broadcast_online_count()
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
@@ -112,6 +114,7 @@ class ConnectionManager:
         if websocket in self.last_change:
             del self.last_change[websocket]
         logging.info(f"ws client disconnected. total: {len(self.active_connections)}")
+        asyncio.create_task(self.broadcast_online_count())
 
     async def broadcast(self, message: dict):
         to_remove = []
@@ -123,6 +126,9 @@ class ConnectionManager:
                 to_remove.append(connection)
         for conn in to_remove:
             self.disconnect(conn)
+
+    async def broadcast_online_count(self):
+        await self.broadcast({"type": "update_online", "online": len(self.active_connections)})
 
     def can_change(self, websocket, cooldown=3):
         now = time.time()

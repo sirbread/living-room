@@ -141,6 +141,7 @@
       padding: 14px 32px;
       border: none;
       font-size: 1.10rem;
+      font-family: georgia;
       cursor: pointer;
       border-radius: 15px;
       backdrop-filter: blur(7px);
@@ -219,6 +220,41 @@
       background: rgba(128,128,32,0.90);
       color: #fffbe9;
     }
+    #total-online-indicator {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 11001;
+      background: rgba(24,32,16,0.6);
+      color: #aaffb0;
+      font-family: georgia, sans-serif;
+      font-size: 1.15rem;
+      padding: 9px 18px 9px 13px;
+      border-radius: 17px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 2px 10px 0 rgba(0,0,0,0.12);
+    }
+    .breathing-dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: hsl(120, 80%, 40%);
+      margin-right: 6px;
+      box-shadow: none;
+      animation: breathing-dot 1.4s infinite linear;
+      flex-shrink: 0;
+      display: inline-block;
+      transition: opacity 0.3s;
+    }
+    @keyframes breathing-dot {
+      0%   { opacity: 0.55; }
+      20%  { opacity: 0.7; }
+      50%  { opacity: 1; }
+      80%  { opacity: 0.7; }
+      100% { opacity: 0.55; }
+    }
     @media (max-width: 1000px), (max-height: 700px) {
       #change-channel {
         font-size: 1rem;
@@ -247,6 +283,11 @@
     <button id="change-channel">change channel</button>
   </div>
   <div id="status-message"></div>
+  <div id="total-online-indicator">
+    <span class="breathing-dot"></span>
+    <span id="online-count">0</span> online
+  </div>
+
   <script src="https://player.twitch.tv/js/embed/v1.js"></script>
   <script>
     const overlay = document.getElementById('overlay');
@@ -257,13 +298,14 @@
     const blocker = document.getElementById('blocker');
     const changeBtn = document.getElementById('change-channel');
     const statusMessage = document.getElementById('status-message');
+    const onlineCountElem = document.getElementById('online-count');
 
     let currentChannel = "{{ channel_name }}";
     let player = null;
     let ws = null;
     let reconnectAttempts = 0;
     let changeCooldown = 3000;  
-    let globalCooldown = 2000;
+    let globalCooldown = 3000;
     let cooldownTimer = null;
 
     let userCooldownUntil = 0;
@@ -414,6 +456,9 @@
               return;
             }
             showStatusMessage(msg.message, 'error', 3100);
+          }
+          else if (msg.type === "update_online" && typeof msg.online === "number") {
+            onlineCountElem.textContent = msg.online;
           }
         };
         ws.onerror = (e) => {
