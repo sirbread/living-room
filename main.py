@@ -61,20 +61,11 @@ def refresh_channels():
             "Client-ID": TWITCH_CLIENT_ID,
             "Authorization": f"Bearer {token}",
         }
-
-        channels = []
-        cursor = None
-        for _ in range(10):  #a thousand streams, in case this thing does go viral (smh)
-            params = {"first": 100}
-            if cursor:
-                params["after"] = cursor
-            resp = session.get(url, headers=headers, params=params)
-            resp.raise_for_status()
-            data = resp.json()
-            channels += data.get("data", [])
-            cursor = data.get("pagination", {}).get("cursor")
-            if not cursor:
-                break
+        params = {"first": 100}
+        resp = session.get(url, headers=headers, params=params)
+        resp.raise_for_status()
+        data = resp.json()
+        channels = data.get("data", [])
 
         cached_channels = [c["user_login"] for c in channels if "user_login" in c]
         last_update = time.time()
