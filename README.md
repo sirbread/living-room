@@ -8,8 +8,8 @@ todo:
 - ~~actually make it sync up with all other running instances~~
 - sounds of clickly clacky
 - "bang the tv" for it to work (it will spontaneously combust)
-- popcorn and a drink ath the bottom - you can throw it around (waaayyy too far fetched imo)
-- cursor tracking
+- show a "click here to change channels"
+- ~~cursor tracking~~
 
 ## boring stuff
 - inspo: neal.fun's internet roadtrip and eieio (@nolenroyalty)'s global capslock key

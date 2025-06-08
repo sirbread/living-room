@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 import logging
 import asyncio
+import secrets
 
 load_dotenv()
 TWITCH_CLIENT_ID = os.environ.get("TWITCH_CLIENT_ID")
@@ -91,12 +92,15 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
         self.last_change: dict[WebSocket, float] = {}
+        self.cursors: dict[WebSocket, dict] = {}
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
         self.last_change[websocket] = 0
-        logging.info(f"ws client connected. total: {len(self.active_connections)}")
+        color = "#{:06x}".format(secrets.randbelow(0xFFFFFF))
+        self.cursors[websocket] = {'x': 0, 'y': 0, 'color': color}
+        logging.info(f"wsCon; total: {len(self.active_connections)}")
         await self.broadcast_online_count()
 
     def disconnect(self, websocket: WebSocket):
@@ -104,7 +108,9 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
         if websocket in self.last_change:
             del self.last_change[websocket]
-        logging.info(f"ws client disconnected. total: {len(self.active_connections)}")
+        if websocket in self.cursors:
+            del self.cursors[websocket]
+        logging.info(f"wsDis; total: {len(self.active_connections)}")
         asyncio.create_task(self.broadcast_online_count())
 
     async def broadcast(self, message: dict):
@@ -128,6 +134,17 @@ class ConnectionManager:
             return True
         return False
 
+    async def broadcast_cursors(self):
+        for ws in self.active_connections:
+            cursors = [
+                {'x': cur['x'], 'y': cur['y'], 'color': cur['color']}
+                for w, cur in self.cursors.items() if w != ws
+            ]
+            try:
+                await ws.send_json({'type': 'cursors', 'cursors': cursors})
+            except:
+                pass
+
 manager = ConnectionManager()
 
 @app.websocket("/ws")
@@ -147,6 +164,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 if now - last_global_change < GLOBAL_COOLDOWN:
                     continue
                 #then do a user cooldown check
+                #should i just remove this atp they're the same anyways
                 if not manager.can_change(websocket):
                     await websocket.send_json({
                         "type": "error",
@@ -167,6 +185,14 @@ async def websocket_endpoint(websocket: WebSocket):
                         "type": "error",
                         "message": "no streams available."
                     })
+            elif data.get("type") == "cursor":
+                x = data.get("x", 0)
+                y = data.get("y", 0)
+                if websocket in manager.cursors:
+                    manager.cursors[websocket]['x'] = x
+                    manager.cursors[websocket]['y'] = y
+                await manager.broadcast_cursors()
+
     except WebSocketDisconnect:
         pass
     except Exception as e:
