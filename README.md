@@ -6,7 +6,7 @@ todo:
 - ~~overlay crt over video~~
 - ~~mute until static dissapears~~
 - ~~actually make it sync up with all other running instances~~
-- sounds of clickly clacky
+- ~~sounds of clickly clacky~~
 - "bang the tv" for it to work (it will spontaneously combust)
 - show a "click here to change channels"
 - ~~cursor tracking~~

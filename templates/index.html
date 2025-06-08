@@ -122,12 +122,13 @@
 
     #blocker {
       position: absolute;
-      left: 0; top: 0;
-      width: 100vw;
-      height: 100vh;
+      left: 22.2vw;
+      top: 22.6vh;
+      width: 56vw;
+      height: 44.5vh;
       z-index: 20;
       background: transparent;
-      cursor: default;
+      cursor: pointer;
       pointer-events: auto;
     }
 
@@ -298,6 +299,7 @@
   <div id="cursors-layer"></div>
   <audio id="click-sound" src="/static/click.mp3" preload="auto"></audio>
   <audio id="hum-sound" src="/static/hum.mp3" preload="auto" loop></audio>
+  <audio id="tap-sound" src="/static/tap.mp3" preload="auto"></audio>
   <script src="https://player.twitch.tv/js/embed/v1.js"></script>
   <script>
     const overlay = document.getElementById('overlay');
@@ -312,6 +314,7 @@
     const cursorsLayer = document.getElementById('cursors-layer');
     const clickSound = document.getElementById('click-sound');
     const humSound = document.getElementById('hum-sound');
+    const tapSound = document.getElementById('tap-sound');
 
     let currentChannel = "{{ channel_name }}";
     let player = null;
@@ -335,6 +338,7 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       humSound.volume = 0.5;
+      tapSound.volume = 0.5;
       function startHum() {
         humSound.play().catch(() => {});
         window.removeEventListener('click', startHum);
@@ -473,7 +477,12 @@
       setTimeout(() => { justClicked = false; if (!remoteIsHovered) channelRemote.classList.remove('raised'); }, 800);
     });
 
-    blocker.style.pointerEvents = 'none';
+    blocker.addEventListener('mousedown', () => {
+      tapSound.currentTime = 0;
+      tapSound.play().catch(() => {});
+    });
+
+    blocker.style.pointerEvents = 'auto';
 
     document.addEventListener('mousemove', function(e) {
       if (ws && ws.readyState === WebSocket.OPEN) {
