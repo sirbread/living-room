@@ -296,6 +296,8 @@
     <span id="online-count">0</span> online
   </div>
   <div id="cursors-layer"></div>
+  <audio id="click-sound" src="/static/click.mp3" preload="auto"></audio>
+  <audio id="hum-sound" src="/static/hum.mp3" preload="auto" loop></audio>
   <script src="https://player.twitch.tv/js/embed/v1.js"></script>
   <script>
     const overlay = document.getElementById('overlay');
@@ -308,6 +310,8 @@
     const statusMessage = document.getElementById('status-message');
     const onlineCountElem = document.getElementById('online-count');
     const cursorsLayer = document.getElementById('cursors-layer');
+    const clickSound = document.getElementById('click-sound');
+    const humSound = document.getElementById('hum-sound');
 
     let currentChannel = "{{ channel_name }}";
     let player = null;
@@ -327,6 +331,17 @@
         ws.onclose = null;
         ws.close();
       }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      humSound.volume = 0.5;
+      function startHum() {
+        humSound.play().catch(() => {});
+        window.removeEventListener('click', startHum);
+        window.removeEventListener('keydown', startHum);
+      }
+      window.addEventListener('click', startHum);
+      window.addEventListener('keydown', startHum);
     });
 
     function setButtonCooldown(type, ms) {
@@ -446,7 +461,9 @@
         channelRemote.classList.remove('raised');
       }
     });
-    channelRemote.addEventListener('click', () => {
+    channelRemote.addEventListener('mousedown', () => {
+      clickSound.currentTime = 0;
+      clickSound.play().catch(() => {});
       if (ws && ws.readyState === WebSocket.OPEN && channelRemote.style.pointerEvents !== 'none') {
         ws.send(JSON.stringify({type: "change_channel"}));
         setButtonCooldown("user", changeCooldown);
