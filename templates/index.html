@@ -130,33 +130,35 @@
       cursor: default;
       pointer-events: auto;
     }
-    #change-channel {
+
+    #channel-remote {
       position: fixed;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 50;
-      background: rgba(255,255,255,0.1);
-      color: white;
-      padding: 14px 32px;
-      border: none;
-      font-size: 1.10rem;
-      font-family: georgia;
+      right: -1vw;
+      bottom: -12vh;
+      width: 400px;
+      max-width: 60vw;
+      z-index: 10002;
       cursor: pointer;
-      border-radius: 15px;
-      backdrop-filter: blur(7px);
-      transition: background 0.3s;
-      box-shadow: 0 2px 18px 0 rgba(0,0,0,0.20);
+      transition:
+        transform 0.28s cubic-bezier(.4,0,.2,1),
+        filter 0.7s cubic-bezier(.4,0,.2,1);
+      pointer-events: auto;
+      user-select: none;
+      filter: brightness(0.65) drop-shadow(0 10px 42px rgba(0,0,0,0.38));
     }
-    #change-channel:disabled {
-      background: rgba(255,255,255,0.05);
-      color: #aaa;
-      cursor: not-allowed;
-      opacity: 0.7;
+    #channel-remote.raised {
+      transform: translateY(-32px) scale(1.03);
     }
-    #change-channel:hover:not(:disabled) {
-      background: rgba(255,255,255,0.19);
+    body.blur-bg #main-content > :not(#channel-remote) {
+      filter: blur(px) brightness(0.7);
+      transition: filter 0.7s cubic-bezier(.4,0,.2,1);
     }
+    #main-content > :not(#channel-remote) {
+      filter: none;
+      transition: filter 0.7s cubic-bezier(.4,0,.2,1);
+    }
+    #change-channel { display: none; }
+
     #overlay {
       position: fixed;
       inset: 0;
@@ -256,10 +258,9 @@
       100% { background: hsl(120, 80%, 25%); opacity: 0.8; }
     }
     @media (max-width: 1000px), (max-height: 700px) {
-      #change-channel {
-        font-size: 1rem;
-        padding: 10px 18px;
-        bottom: 12px;
+      #channel-remote {
+        width: 200px;
+        max-width: 68vw;
       }
     }
   </style>
@@ -280,7 +281,7 @@
       <img src="/static/crt.png" alt="crt tv" class="crt-image" />
       <div id="blocker"></div>
     </div>
-    <button id="change-channel">change channel</button>
+    <img id="channel-remote" src="/static/remote.png" alt="TV Remote" />
   </div>
   <div id="status-message"></div>
   <div id="total-online-indicator">
@@ -296,7 +297,7 @@
     const staticOverlay = document.getElementById('static-overlay');
     const staticVideo = staticOverlay.querySelector('video');
     const blocker = document.getElementById('blocker');
-    const changeBtn = document.getElementById('change-channel');
+    const channelRemote = document.getElementById('channel-remote');
     const statusMessage = document.getElementById('status-message');
     const onlineCountElem = document.getElementById('online-count');
 
@@ -335,11 +336,11 @@
       const userActive = userCooldownUntil > now;
       const globalActive = globalCooldownUntil > now;
       if (userActive || globalActive) {
-        changeBtn.disabled = true;
-        changeBtn.textContent = "hold up...";
+        channelRemote.style.pointerEvents = 'none';
+        channelRemote.style.opacity = 0.5;
       } else {
-        changeBtn.disabled = false;
-        changeBtn.textContent = "change channel";
+        channelRemote.style.pointerEvents = 'auto';
+        channelRemote.style.opacity = 1;
       }
       if (userActive || globalActive) {
         if (cooldownTimer) clearTimeout(cooldownTimer);
@@ -421,12 +422,32 @@
       connectWS();
     });
 
-    changeBtn.addEventListener('click', () => {
-      if (ws && ws.readyState === WebSocket.OPEN && !changeBtn.disabled) {
+    let remoteIsHovered = false;
+    let justClicked = false;
+    channelRemote.addEventListener('mouseenter', () => {
+      remoteIsHovered = true;
+      document.body.classList.add('blur-bg');
+      channelRemote.classList.add('raised');
+    });
+    channelRemote.addEventListener('mouseleave', () => {
+      remoteIsHovered = false;
+      if (!justClicked) {
+        document.body.classList.remove('blur-bg');
+      }
+      if (!justClicked) {
+        channelRemote.classList.remove('raised');
+      }
+    });
+    channelRemote.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN && channelRemote.style.pointerEvents !== 'none') {
         ws.send(JSON.stringify({type: "change_channel"}));
         setButtonCooldown("user", changeCooldown);
       }
+      document.body.classList.remove('blur-bg');
+      justClicked = true;
+      setTimeout(() => { justClicked = false; if (!remoteIsHovered) channelRemote.classList.remove('raised'); }, 800);
     });
+
     blocker.style.pointerEvents = 'none';
 
     function connectWS() {
@@ -468,8 +489,8 @@
         ws.onclose = () => {
           if (isUnloading) return;
           showStatusMessage('disconnected. attempting to reconnect...', 'error', 3200);
-          changeBtn.disabled = true;
-          changeBtn.textContent = "reconnecting...";
+          channelRemote.style.pointerEvents = "none";
+          channelRemote.style.opacity = 0.5;
           reconnectAttempts++;
           const retryDelay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
           setTimeout(connectWS, retryDelay);
