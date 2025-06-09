@@ -270,38 +270,58 @@
         width: 200px;
         max-width: 68vw;
       }
+      #tip-image {
+        width: 120px;
+        bottom: 33vh;
+        right: 16vw;
+      }
     }
     #github-btn {
-    position: fixed;
-    top: 24px;
-    left: 24px;
-    z-index: 11001;
-    background: rgba(24,32,16,0.6);
-    color: #ffffff;
-    border-radius: 11px;
-    width: 52px;
-    height: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 10px 0 rgba(0,0,0,0.12);
-    text-decoration: none;
-    transition: background 0.2s, box-shadow 0.2s;
-    border: none;
-    cursor: pointer;
-  }
-  #github-btn:hover {
-    background: rgb(49, 49, 49);
-    box-shadow: 0 4px 22px 0 rgba(0,0,0,0.17);
-  }
-  #github-btn .github-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      z-index: 11001;
+      background: rgba(24,32,16,0.6);
+      color: #ffffff;
+      border-radius: 11px;
+      width: 52px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 10px 0 rgba(0,0,0,0.12);
+      text-decoration: none;
+      transition: background 0.2s, box-shadow 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    #github-btn:hover {
+      background: rgb(49, 49, 49);
+      box-shadow: 0 4px 22px 0 rgba(0,0,0,0.17);
+    }
+    #github-btn .github-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+    }
 
-  }
+    #tip-image {
+      position: fixed;
+      right: 35vh;   
+      bottom: 5vh;
+      z-index: 10003;
+      width: 40vh;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s;
+        filter: drop-shadow(0 4px 18px rgba(0,0,0,0.38));
+      }
+      #tip-image.visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
   </style>
 </head>
 <body>
@@ -322,6 +342,7 @@
       <div id="blocker"></div>
     </div>
     <img id="channel-remote" src="/static/remote.png" alt="TV Remote" />
+    <img id="tip-image" src="/static/tip.png" alt="Tip: Click here to change channels" />
   </div>
   <a id="github-btn" href="https://github.com/sirbread/living-room" target="_blank" title="source code for this project">
     <span class="github-icon" aria-hidden="true">
@@ -355,6 +376,7 @@
     const staticVideo = staticOverlay.querySelector('video');
     const blocker = document.getElementById('blocker');
     const channelRemote = document.getElementById('channel-remote');
+    const tipImage = document.getElementById('tip-image');
     const statusMessage = document.getElementById('status-message');
     const onlineCountElem = document.getElementById('online-count');
     const cursorsLayer = document.getElementById('cursors-layer');
@@ -373,6 +395,7 @@
     let userCooldownUntil = 0;
     let globalCooldownUntil = 0;
     let isUnloading = false;
+    let tipVisible = false;
 
     window.addEventListener('beforeunload', function() {
       isUnloading = true;
@@ -493,6 +516,10 @@
       mainContent.classList.add('ready');
       createPlayer(currentChannel);
       connectWS();
+      setTimeout(() => {
+        tipImage.classList.add('visible');
+        tipVisible = true;
+      }, 650);
     });
 
     let remoteIsHovered = false;
@@ -521,6 +548,10 @@
       document.body.classList.remove('blur-bg');
       justClicked = true;
       setTimeout(() => { justClicked = false; if (!remoteIsHovered) channelRemote.classList.remove('raised'); }, 800);
+      if (tipVisible) {
+        tipImage.classList.remove('visible');
+        tipVisible = false;
+      }
     });
 
     blocker.addEventListener('mousedown', () => {
