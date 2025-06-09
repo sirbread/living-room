@@ -2,3 +2,4 @@ fastapi
 requests
 python-dotenv
 uvicorn
+jinja2
