@@ -8,8 +8,10 @@ todo:
 - ~~actually make it sync up with all other running instances~~
 - ~~sounds of clickly clacky~~
 - "bang the tv" for it to work (it will spontaneously combust)
+- screen shattering after tapping
 - show a "click here to change channels"
 - ~~cursor tracking~~
 
 ## boring stuff
 - inspo: neal.fun's internet roadtrip and eieio (@nolenroyalty)'s global capslock key
+- github icon: https://icons.getbootstrap.com/icons/github/
