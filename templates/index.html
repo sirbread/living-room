@@ -271,7 +271,7 @@
         max-width: 68vw;
       }
       #tip-image {
-        width: 120px;
+        width: 12vh;
         bottom: 33vh;
         right: 16vw;
       }
@@ -316,12 +316,26 @@
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.4s;
-        filter: drop-shadow(0 4px 18px rgba(0,0,0,0.38));
-      }
-      #tip-image.visible {
-        opacity: 1;
-        pointer-events: auto;
-      }
+      filter: drop-shadow(0 4px 18px rgba(0,0,0,0.38));
+    }
+    #tip-image.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #shatter-overlay {
+      position: absolute;
+      left: 31.5vw;
+      top: 22.6vh;
+      width: 37vw;
+      height: 44.5vh;
+      z-index: 21;
+      border-radius: 2.5%/3.0%;
+      pointer-events: none;
+      opacity: 0;
+    }
+    #shatter-overlay.visible {
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
@@ -340,6 +354,7 @@
       <div class="crt-flicker"></div>
       <img src="/static/crt.png" alt="crt tv" class="crt-image" />
       <div id="blocker"></div>
+      <img id="shatter-overlay" src="/static/shatter.png" alt="great job you shattered the screen" />
     </div>
     <img id="channel-remote" src="/static/remote.png" alt="TV Remote" />
     <img id="tip-image" src="/static/tip.png" alt="Tip: Click here to change channels" />
@@ -367,6 +382,7 @@
   <audio id="click-sound" src="/static/click.mp3" preload="auto"></audio>
   <audio id="hum-sound" src="/static/hum.mp3" preload="auto" loop></audio>
   <audio id="tap-sound" src="/static/tap.mp3" preload="auto"></audio>
+  <audio id="shatter-sound" src="/static/shatter.mp3" preload="auto"></audio>
   <script src="https://player.twitch.tv/js/embed/v1.js"></script>
   <script>
     const overlay = document.getElementById('overlay');
@@ -377,6 +393,8 @@
     const blocker = document.getElementById('blocker');
     const channelRemote = document.getElementById('channel-remote');
     const tipImage = document.getElementById('tip-image');
+    const shatterOverlay = document.getElementById('shatter-overlay');
+    const shatterSound = document.getElementById('shatter-sound');
     const statusMessage = document.getElementById('status-message');
     const onlineCountElem = document.getElementById('online-count');
     const cursorsLayer = document.getElementById('cursors-layer');
@@ -396,6 +414,7 @@
     let globalCooldownUntil = 0;
     let isUnloading = false;
     let tipVisible = false;
+    let tapCount = 0;
 
     window.addEventListener('beforeunload', function() {
       isUnloading = true;
@@ -555,8 +574,14 @@
     });
 
     blocker.addEventListener('mousedown', () => {
+      tapCount++;
       tapSound.currentTime = 0;
       tapSound.play().catch(() => {});
+      if (tapCount === 3) {
+        shatterOverlay.classList.add('visible');
+        shatterSound.currentTime = 0;
+        shatterSound.play().catch(() => {});
+      }
     });
 
     blocker.style.pointerEvents = 'auto';
